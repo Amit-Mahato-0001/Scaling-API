@@ -8,5 +8,10 @@
   "keywords": [],
   "author": "",
   "license": "ISC",
-  "description": ""
+  "description": "",
+  "dependencies": {
+    "express-rate-limit": "^8.2.1",
+    "rate-limit-redis": "^4.3.1",
+    "redis": "^5.11.0"
+  }
 }
