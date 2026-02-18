@@ -19,12 +19,12 @@ const limiter = rateLimit({
 
 app.use(limiter)
 
-const fakeDB = () => new Promise(res => {
+const fakeDB = () => new Promise(res => setTimeout(() => {
 
     console.log("Fetching from DB")
     res({ id: 1, name: "Amit" })
 
-})
+}, 1000))
 
 app.get('/user', async (req, res) => {
 

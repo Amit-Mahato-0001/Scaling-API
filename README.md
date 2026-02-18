@@ -137,17 +137,18 @@ This comparison clearly highlights the importance of response time optimization 
 
 ---
 
-# TEST 3 – After Rate Limiting & Redis Caching
+# TEST 3 – After Rate Limiting & Redis Caching (Fast API Scenario)
 
 ## Overview
 
-In this phase Redis-based rate limiting and server-side caching were implemented.
+I implemented Redis-based rate limiting and server-side caching on the fast (no artificial delay) version of the API.
 
 Goals:
 
-- Reduce repeated database calls using Redis caching
-- Protect the API from abuse using rate limiting
-- Measure performance after introducing production-like controls
+- Introduce rate limiting using Redis
+- Add server-side caching
+- Measure system performance after adding production-like protection controls
+- Validate that protection layers do not significantly degrade performance
 
 ---
 
@@ -202,18 +203,82 @@ autocannon http://localhost:3000/user
 
 ## Key Learning
 
-Redis caching maintained low latency by avoiding repeated DB calls.
-
-Rate limiting successfully protected the API by blocking excessive requests under high load.
+Even after introducing Redis-based rate limiting and caching latency remained extremely low.
+This confirms that distributed protection layers do not significantly degrade performance in a fast API scenario.
+Rate limiting blocked excessive traffic preventing abuse under high load.
 
 ---
 
-## Insight
+# TEST 4 – Artificial Delay + Redis Caching + Rate Limiting
 
-This phase demonstrates how:
+## Overview
 
-- Caching improves performance
-- Rate limiting enforces protection
-- Production-like controls affect load test results
+I reintroduced the artificial 1-second delay while keeping Redis caching and rate limiting enabled.
 
-Even under heavy traffic the system remained stable and responsive.
+Goals:
+
+- Observe how caching behaves when the database is slow
+- Measure performance impact of delay with Redis in place
+- Validate that caching masks database latency
+
+---
+
+## Load Testing Configuration
+
+**Tool used:** Autocannon  
+
+**Command:**
+
+```
+autocannon http://localhost:3000/user
+```
+
+### Test Parameters
+
+- Concurrency (Connections): 10  
+- Duration: 10 secs  
+- Endpoint tested: `/user`
+
+---
+
+## Metrics
+
+```
+┌─────────┬──────┬──────┬───────┬──────┬─────────┬─────────┬─────────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%  │ Avg     │ Stdev   │ Max     │
+├─────────┼──────┼──────┼───────┼──────┼─────────┼─────────┼─────────┤
+│ Latency │ 1 ms │ 1 ms │ 3 ms  │ 3 ms │ 1.27 ms │ 9.97 ms │ 1027 ms │
+└─────────┴──────┴──────┴───────┴──────┴─────────┴─────────┴─────────┘
+┌───────────┬─────────┬─────────┬─────────┬─────────┬─────────┬────────┬─────────┐
+│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg     │ Stdev  │ Min     │
+├───────────┼─────────┼─────────┼─────────┼─────────┼─────────┼────────┼─────────┤
+│ Req/Sec   │ 3,343   │ 3,343   │ 5,555   │ 5,859   │ 5,307.3 │ 705    │ 3,342   │
+├───────────┼─────────┼─────────┼─────────┼─────────┼─────────┼────────┼─────────┤
+│ Bytes/Sec │ 1.24 MB │ 1.24 MB │ 2.07 MB │ 2.18 MB │ 1.97 MB │ 262 kB │ 1.24 MB │
+└───────────┴─────────┴─────────┴─────────┴─────────┴─────────┴────────┴─────────┘
+
+5 2xx responses, 53063 non 2xx responses  
+53k requests in 10.02s, 19.7 MB read
+```
+
+---
+
+## Observed Performance Metrics
+
+- Avg latency: 1.27ms  
+- Max latency: ~1027ms (first uncached request)  
+- Requests per sec: ~5,307 req/sec  
+- Total requests: ~53k  
+- Majority responses were non-2xx due to rate limiting  
+
+---
+
+## Key Learning
+
+Even with a 1-second artificial delay Redis caching ensured that only the first request experience the delay.
+Subsequent requests were served instantly from cache maintaining high throughput and low average latency.
+
+---
+
+
+
