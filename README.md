@@ -134,3 +134,86 @@ Lower latency directly improves throughput and overall scalability.
 # Final Insight
 
 This comparison clearly highlights the importance of response time optimization in scalable backend systems.
+
+---
+
+# TEST 3 – After Rate Limiting & Redis Caching
+
+## Overview
+
+In this phase Redis-based rate limiting and server-side caching were implemented.
+
+Goals:
+
+- Reduce repeated database calls using Redis caching
+- Protect the API from abuse using rate limiting
+- Measure performance after introducing production-like controls
+
+---
+
+## Load Testing Configuration
+
+**Tool used:** Autocannon  
+
+**Command:**
+
+```
+autocannon http://localhost:3000/user
+```
+
+### Test Parameters
+
+- Concurrency (Connections): 10  
+- Duration: 10 secs  
+- Endpoint tested: `/user`
+
+---
+
+## Metrics
+
+```
+┌─────────┬──────┬──────┬───────┬──────┬─────────┬─────────┬───────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%  │ Avg     │ Stdev   │ Max   │
+├─────────┼──────┼──────┼───────┼──────┼─────────┼─────────┼───────┤
+│ Latency │ 1 ms │ 1 ms │ 3 ms  │ 3 ms │ 1.19 ms │ 0.64 ms │ 28 ms │
+└─────────┴──────┴──────┴───────┴──────┴─────────┴─────────┴───────┘
+┌───────────┬────────┬────────┬─────────┬─────────┬─────────┬────────┬────────┐
+│ Stat      │ 1%     │ 2.5%   │ 50%     │ 97.5%   │ Avg     │ Stdev  │ Min    │
+├───────────┼────────┼────────┼─────────┼─────────┼─────────┼────────┼────────┤
+│ Req/Sec   │ 3,775  │ 3,775  │ 5,771   │ 5,943   │ 5,583.7 │ 616.62 │ 3,774  │
+├───────────┼────────┼────────┼─────────┼─────────┼─────────┼────────┼────────┤
+│ Bytes/Sec │ 1.4 MB │ 1.4 MB │ 2.15 MB │ 2.21 MB │ 2.08 MB │ 229 kB │ 1.4 MB │
+└───────────┴────────┴────────┴─────────┴─────────┴─────────┴────────┴────────┘
+
+5 2xx responses, 55821 non 2xx responses  
+56k requests in 10.03s, 20.8 MB read
+```
+
+---
+
+## Observed Performance Metrics
+
+- Avg latency: 1.19ms  
+- Requests per sec: ~5,583 req/sec  
+- Total requests: ~56k  
+- Majority responses were non-2xx due to rate limiting  
+
+---
+
+## Key Learning
+
+Redis caching maintained low latency by avoiding repeated DB calls.
+
+Rate limiting successfully protected the API by blocking excessive requests under high load.
+
+---
+
+## Insight
+
+This phase demonstrates how:
+
+- Caching improves performance
+- Rate limiting enforces protection
+- Production-like controls affect load test results
+
+Even under heavy traffic the system remained stable and responsive.
