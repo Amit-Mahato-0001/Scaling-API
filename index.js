@@ -1,3 +1,21 @@
+const cluster = require('cluster')
+const os = require('os')
+const numCPUs = os.cpus().length
+
+if (cluster.isPrimary) {
+    console.log(`Primary ${process.pid} is running`)
+
+    for(let i=0; i<numCPUs; i++){
+        cluster.fork()
+    }
+
+    cluster.on('exit', (worker) => {
+        console.log(`Worker ${worker.process.pid} died. Starting a new one...`)
+        cluster.fork()
+    })
+
+} else {
+
 const express = require("express")
 const app = express()
 const rateLimit = require("express-rate-limit")
@@ -44,3 +62,4 @@ app.get('/user', async (req, res) => {
 })
 
 app.listen(3000, () => console.log('Server is running on port 3000'))
+}

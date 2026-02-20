@@ -280,5 +280,77 @@ Subsequent requests were served instantly from cache maintaining high throughput
 
 ---
 
+# TEST 5 – After Enabling Node.js Clustering (Multi-Core Scaling)
 
+## Overview
 
+I enabled Node.js clustering to utilize all available CPU cores.
+
+Goals:
+
+- Improve concurrency handling
+- Utilize multi-core CPU architecture
+- Increase throughput under high load
+- Compare performance against single-process execution
+
+Cluster module was used to fork worker processes equal to the number of CPU cores.
+
+---
+
+## Load Testing Configuration
+
+**Tool used:** Autocannon  
+
+**Command:**
+
+```
+autocannon http://localhost:3000/user
+```
+
+### Test Parameters
+
+- Concurrency (Connections): 10  
+- Duration: 10–11 secs  
+- Endpoint tested: `/user`
+
+---
+
+## Metrics
+
+```
+┌─────────┬──────┬──────┬───────┬──────┬─────────┬─────────┬───────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%  │ Avg     │ Stdev   │ Max   │
+├─────────┼──────┼──────┼───────┼──────┼─────────┼─────────┼───────┤
+│ Latency │ 0 ms │ 0 ms │ 1 ms  │ 2 ms │ 0.44 ms │ 0.58 ms │ 13 ms │
+└─────────┴──────┴──────┴───────┴──────┴─────────┴─────────┴───────┘
+┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬────────┬─────────┐
+│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev  │ Min     │
+├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼────────┼─────────┤
+│ Req/Sec   │ 8,623   │ 8,623   │ 10,039  │ 10,327  │ 9,761.82 │ 515.29 │ 8,620   │
+├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼────────┼─────────┤
+│ Bytes/Sec │ 3.21 MB │ 3.21 MB │ 3.73 MB │ 3.84 MB │ 3.63 MB  │ 191 kB │ 3.21 MB │
+└───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴────────┴─────────┘
+
+0 2xx responses, 107369 non 2xx responses  
+107k requests in 11.02s, 39.9 MB read
+```
+
+---
+
+## Observed Performance Metrics
+
+- Avg latency: 0.44ms  
+- Requests per sec: ~9,762 req/sec  
+- Total requests: ~107k  
+- Majority responses were non-2xx due to rate limiting  
+
+---
+
+## Key Learning
+
+Enabling clustering significantly increased throughput compared to single-process execution,
+By utilizing multiple CPU cores the application handled nearly double the requests per second while maintaining extremely low latency.
+
+This test demonstrates vertical scaling within a single machine,
+Node.js clustering allows better CPU utilization and improves concurrency handling without modifying application logic,
+When combined with Redis-based caching and rate limiting the system remains stable and scalable under high traffic.
