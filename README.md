@@ -354,3 +354,184 @@ By utilizing multiple CPU cores the application handled nearly double the reques
 This test demonstrates vertical scaling within a single machine,
 Node.js clustering allows better CPU utilization and improves concurrency handling without modifying application logic,
 When combined with Redis-based caching and rate limiting the system remains stable and scalable under high traffic.
+
+---
+
+# TEST 6 – Concurrency Saturation & Optimal Throughput Analysis
+
+## Overview
+
+After enabling clustering, Redis caching, and rate limiting, additional load tests were conducted to determine the **optimal concurrency level** for the system.
+
+The objective of this phase was to identify:
+
+- The concurrency level that produces **maximum throughput**
+- The point where **latency begins increasing significantly**
+- The **saturation threshold** where increasing concurrency no longer improves performance
+
+To achieve this, the system was tested with progressively increasing concurrency levels.
+
+---
+
+## Load Testing Configuration
+
+**Tool used:** Autocannon  
+
+**Command:**
+
+```
+autocannon -c <connections> -d 20 http://localhost:3000/user
+```
+
+### Test Parameters
+
+- Duration: 20 secs  
+- Endpoint tested: `/user`  
+- Concurrency levels tested: **50, 100, 200, 300**
+
+---
+
+# TEST 6.1 – Concurrency 50
+
+## Metrics
+
+```
+┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬─────────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max     │
+├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼─────────┤
+│ Latency │ 1 ms │ 3 ms │ 13 ms │ 17 ms │ 4.41 ms │ 6.49 ms │ 1101 ms │
+└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴─────────┘
+┌───────────┬─────────┬─────────┬────────┬─────────┬───────────┬─────────┬─────────┐
+│ Stat      │ 1%      │ 2.5%    │ 50%    │ 97.5%   │ Avg       │ Stdev   │ Min     │
+├───────────┼─────────┼─────────┼────────┼─────────┼───────────┼─────────┼─────────┤
+│ Req/Sec   │ 6,591   │ 6,591   │ 10,743 │ 11,863  │ 10,187.7  │ 1,375.1 │ 6,589   │
+│ Bytes/Sec │ 2.45 MB │ 2.45 MB │ 4 MB   │ 4.42 MB │ 3.79 MB   │ 512 kB  │ 2.45 MB │
+└───────────┴─────────┴─────────┴────────┴─────────┴───────────┴─────────┴─────────┘
+
+204k requests in 20.05s, 75.8 MB read
+```
+
+---
+
+## Observed Performance Metrics
+
+- Avg latency: ~4.41 ms
+- Requests per sec: ~10,187 req/sec
+- Total requests: ~204k
+
+---
+
+# TEST 6.2 – Concurrency 100
+
+## Metrics
+
+```
+┌─────────┬──────┬──────┬───────┬───────┬─────────┬─────────┬─────────┐
+│ Stat    │ 2.5% │ 50%  │ 97.5% │ 99%   │ Avg     │ Stdev   │ Max     │
+├─────────┼──────┼──────┼───────┼───────┼─────────┼─────────┼─────────┤
+│ Latency │ 0 ms │ 2 ms │ 25 ms │ 30 ms │ 6.67 ms │ 9.66 ms │ 1132 ms │
+└─────────┴──────┴──────┴───────┴───────┴─────────┴─────────┴─────────┘
+┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬──────────┬─────────┐
+│ Stat      │ 1%      │ 2.5%    │ 50%     │ 97.5%   │ Avg      │ Stdev    │ Min     │
+├───────────┼─────────┼─────────┼─────────┼─────────┼──────────┼──────────┼─────────┤
+│ Req/Sec   │ 7,711   │ 7,711   │ 14,303  │ 15,559  │ 13,948.1 │ 1,974.36 │ 7,708   │
+│ Bytes/Sec │ 2.87 MB │ 2.87 MB │ 5.32 MB │ 5.79 MB │ 5.19 MB  │ 735 kB   │ 2.87 MB │
+└───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴──────────┴─────────┘
+
+279k requests in 20.04s, 104 MB read
+```
+
+---
+
+## Observed Performance Metrics
+
+- Avg latency: ~6.67 ms
+- Requests per sec: ~13,948 req/sec
+- Total requests: ~279k
+
+This test achieved the **highest throughput among all concurrency levels tested**.
+
+---
+
+# TEST 6.3 – Concurrency 200
+
+## Metrics
+
+```
+┌─────────┬──────┬───────┬───────┬───────┬──────────┬─────────┬─────────┐
+│ Stat    │ 2.5% │ 50%   │ 97.5% │ 99%   │ Avg      │ Stdev   │ Max     │
+├─────────┼──────┼───────┼───────┼───────┼──────────┼─────────┼─────────┤
+│ Latency │ 0 ms │ 16 ms │ 28 ms │ 33 ms │ 15.91 ms │ 8.55 ms │ 1105 ms │
+└─────────┴──────┴───────┴───────┴───────┴──────────┴─────────┴─────────┘
+┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬─────────┬─────────┐
+│ Req/Sec   │ 9,967   │ 9,967   │ 12,287  │ 13,767  │ 12,180.4 │ 1,276.2 │ 9,967   │
+│ Bytes/Sec │ 3.71 MB │ 3.71 MB │ 4.57 MB │ 5.12 MB │ 4.53 MB  │ 474 kB  │ 3.71 MB │
+└───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴─────────┴─────────┘
+
+244k requests in 20.05s, 90.6 MB read
+```
+
+---
+
+# TEST 6.4 – Concurrency 300
+
+## Metrics
+
+```
+┌─────────┬───────┬───────┬───────┬───────┬──────────┬─────────┬─────────┐
+│ Stat    │ 2.5%  │ 50%   │ 97.5% │ 99%   │ Avg      │ Stdev   │ Max     │
+├─────────┼───────┼───────┼───────┼───────┼──────────┼─────────┼─────────┤
+│ Latency │ 17 ms │ 23 ms │ 33 ms │ 40 ms │ 23.12 ms │ 7.14 ms │ 1130 ms │
+└─────────┴───────┴───────┴───────┴───────┴──────────┴─────────┴─────────┘
+┌───────────┬─────────┬─────────┬─────────┬─────────┬──────────┬────────┬─────────┐
+│ Req/Sec   │ 9,567   │ 9,567   │ 12,927  │ 13,383  │ 12,711.6 │ 817.55 │ 9,561   │
+│ Bytes/Sec │ 3.56 MB │ 3.56 MB │ 4.81 MB │ 4.98 MB │ 4.73 MB  │ 305 kB │ 3.56 MB │
+└───────────┴─────────┴─────────┴─────────┴─────────┴──────────┴────────┴─────────┘
+
+255k requests in 20.07s, 94.6 MB read
+```
+
+---
+
+# Observed Scaling Pattern
+
+| Concurrency | Avg Latency | Req/Sec |
+|-------------|-------------|--------|
+| 50 | ~4.41 ms | ~10,187 |
+| **100** | **~6.67 ms** | **~13,948** |
+| 200 | ~15.91 ms | ~12,180 |
+| 300 | ~23.12 ms | ~12,711 |
+
+---
+
+# Key Learning
+
+The system demonstrates a **throughput saturation curve**.
+
+Initially, increasing concurrency improves throughput as the server utilizes CPU resources more efficiently.
+
+However, after reaching system capacity:
+
+- additional requests wait in queues
+- latency increases significantly
+- throughput no longer improves
+
+At **100 concurrent requests**, the system achieved:
+
+- **maximum throughput (~14k req/sec)**
+- **low latency (~6.67 ms)**
+- **stable performance**
+
+Beyond this point, increasing concurrency only increases latency without improving throughput.
+
+---
+
+# Final Conclusion
+
+```
+Peak throughput ≈ 14k requests/sec
+Optimal concurrency ≈ 100
+Saturation begins ≈ 150–200
+```
+
+Operating the system around **100 concurrent requests** provides the best balance between **maximum throughput and minimal latency**, ensuring stable and efficient performance under load.
