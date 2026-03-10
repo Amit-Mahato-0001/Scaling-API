@@ -535,3 +535,219 @@ Saturation begins ≈ 150–200
 ```
 
 Operating the system around **100 concurrent requests** provides the best balance between **maximum throughput and minimal latency**, ensuring stable and efficient performance under load.
+
+---
+
+# TEST 7 – Horizontal Scaling Using NGINX
+
+## Overview
+
+After testing vertical scaling with Node.js clustering, the next step was to try **horizontal scaling**.
+
+Instead of running only one server, I started **multiple Node.js servers** and placed **NGINX in front of them** to distribute the traffic.
+
+This setup is very common in real production systems.
+
+The idea is simple:
+
+- client sends request
+- NGINX receives it
+- NGINX forwards the request to one of the backend servers
+
+---
+
+## Architecture
+
+```
+Client
+   │
+   ▼
+NGINX Load Balancer
+   │
+   ├── Node Server :3000
+   └── Node Server :3001
+```
+
+Both servers run the same application, and NGINX spreads the traffic between them.
+
+---
+
+## Load Testing Configuration
+
+**Tool used:** Autocannon
+
+Command used:
+
+```
+autocannon -c 100 -d 20 http://localhost:8080/user
+```
+
+### Test Parameters
+
+- Concurrency: 100
+- Duration: 20 seconds
+- Endpoint: `/user`
+
+---
+
+## Metrics
+
+```
+┌─────────┬───────┬───────┬───────┬───────┬──────────┬──────────┬─────────┐
+│ Stat    │ 2.5%  │ 50%   │ 97.5% │ 99%   │ Avg      │ Stdev    │ Max     │
+├─────────┼───────┼───────┼───────┼───────┼──────────┼──────────┼─────────┤
+│ Latency │ 23 ms │ 36 ms │ 77 ms │ 94 ms │ 41.07 ms │ 50.05 ms │ 1114 ms │
+└─────────┴───────┴───────┴───────┴───────┴──────────┴──────────┴─────────┘
+┌───────────┬─────┬──────┬────────┬────────┬──────────┬────────┬────────┐
+│ Req/Sec   │ 0   │ 0    │ 2,553  │ 2,939  │ 2,406.31 │ 609.77 │ 1,894  │
+└───────────┴─────┴──────┴────────┴────────┴──────────┴────────┴────────┘
+
+48k requests in 20.07s
+```
+
+---
+
+## Observations
+
+The results were interesting.
+
+Even though we added more servers, the throughput did **not increase much**.  
+Latency also became higher compared to the earlier tests.
+
+This suggested that something else in the system was slowing things down.
+
+---
+
+## Key Learning
+
+In distributed systems, adding more servers does not always increase performance.
+
+If all servers depend on the same external service, that service can become the **bottleneck**.
+
+In this case, both servers were using the same **Redis instance**, which likely limited the system performance.
+
+---
+
+# TEST 8 – Testing Without Redis
+
+## Overview
+
+To confirm whether Redis was the bottleneck, I removed Redis from the request flow and tested the system again.
+
+Instead of reading from cache, the API simply returned the response directly.
+
+This helped isolate the application performance.
+
+---
+
+## Load Testing Configuration
+
+Command used:
+
+```
+autocannon -c 100 -d 20 http://localhost:8080/user
+```
+
+---
+
+## Metrics
+
+```
+┌─────────┬───────┬───────┬───────┬───────┬──────────┬─────────┬────────┐
+│ Stat    │ 2.5%  │ 50%   │ 97.5% │ 99%   │ Avg      │ Stdev   │ Max    │
+├─────────┼───────┼───────┼───────┼───────┼──────────┼─────────┼────────┤
+│ Latency │ 16 ms │ 19 ms │ 32 ms │ 38 ms │ 20.64 ms │ 5.09 ms │ 114 ms │
+└─────────┴───────┴───────┴───────┴───────┴──────────┴─────────┴────────┘
+┌───────────┬────────┬────────┬─────────┬─────────┬──────────┬────────┬────────┐
+│ Req/Sec   │ 3,643  │ 3,643  │ 4,867   │ 5,255   │ 4,732.36 │ 487.35 │ 3,643  │
+└───────────┴────────┴────────┴─────────┴─────────┴──────────┴────────┴────────┘
+
+95k requests in 20.05s
+```
+
+---
+
+## Observations
+
+After removing Redis, the throughput increased from around **2.4k req/sec to about 4.7k req/sec**.
+
+Latency also improved.
+
+This confirmed that Redis was adding extra overhead to every request.
+
+---
+
+## Key Learning
+
+Caching systems like Redis are useful, but they also introduce network calls.
+
+If many servers depend on a single Redis instance, it can become a **performance bottleneck**.
+
+---
+
+# TEST 9 – Stress Test (500 Concurrent Users)
+
+## Overview
+
+Finally, I wanted to see how the system behaves under **very heavy load**.
+
+So I increased concurrency to **500 users**.
+
+The goal of this test was to see:
+
+- how the system behaves when pushed beyond normal limits
+- when latency starts increasing heavily
+- when errors start appearing
+
+---
+
+## Load Testing Configuration
+
+Command used:
+
+```
+autocannon -c 500 -d 20 http://localhost:8080/user
+```
+
+---
+
+## Metrics
+
+```
+┌─────────┬────────┬────────┬─────────┬─────────┬───────────┬───────────┬─────────┐
+│ Stat    │ 2.5%   │ 50%    │ 97.5%   │ 99%     │ Avg       │ Stdev     │ Max     │
+├─────────┼────────┼────────┼─────────┼─────────┼───────────┼───────────┼─────────┤
+│ Latency │ 119 ms │ 140 ms │ 1350 ms │ 2141 ms │ 255.09 ms │ 337.19 ms │ 3353 ms │
+└─────────┴────────┴────────┴─────────┴─────────┴───────────┴───────────┴─────────┘
+┌───────────┬────────┬────────┬────────┬─────────┬──────────┬────────┬────────┐
+│ Req/Sec   │ 1,664  │ 1,664  │ 3,543  │ 4,027   │ 3,449.25 │ 567.53 │ 1,664  │
+└───────────┴────────┴────────┴────────┴─────────┴──────────┴────────┴────────┘
+
+70k requests in 20 seconds
+479 errors
+```
+
+---
+
+## Observations
+
+At this level of load, the system clearly reached its limits.
+
+Latency increased a lot and some requests started failing.
+
+Even though concurrency increased, the number of requests processed per second did not increase much.
+
+---
+
+## Key Learning
+
+This shows a common behavior in real systems.
+
+When a system reaches its limit:
+
+- requests start waiting
+- latency increases
+- errors begin to appear
+
+That is why production systems usually run **below their maximum capacity** to stay stable.
+

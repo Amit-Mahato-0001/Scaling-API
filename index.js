@@ -20,24 +20,24 @@ if (cluster.isPrimary) {
 
 const express = require("express")
 const app = express()
-const rateLimit = require("express-rate-limit")
-const { RedisStore } = require("rate-limit-redis")
+// const rateLimit = require("express-rate-limit")
+// const { RedisStore } = require("rate-limit-redis")
 const { createClient } = require("redis")
 
 const redisClient = createClient()
 redisClient.connect().catch(console.error)
 
 {/* This middleware insures no IP can spam the API more than 5 times in a minute */}
-const limiter = rateLimit({
-    windowMs: 60 * 1000,
-    max: 5,
-    message: "To many requests, try again later",
-    store: new RedisStore({
-        sendCommand: (...args) => redisClient.sendCommand(args)
-    })
-})
+// const limiter = rateLimit({
+//     windowMs: 60 * 1000,
+//     max: 5,
+//     message: "To many requests, try again later",
+//     store: new RedisStore({
+//         sendCommand: (...args) => redisClient.sendCommand(args)
+//     })
+// })
 
-app.use(limiter)
+// app.use(limiter)
 
 const fakeDB = () => new Promise(res => setTimeout(() => {
 
@@ -48,30 +48,7 @@ const fakeDB = () => new Promise(res => setTimeout(() => {
 
 app.get('/user', async (req, res) => {
 
-    const cachekey = 'user:1'
-    const cached = await redisClient.get(cachekey)
-
-    if(cached){
-
-        console.log(`Returning from cache.. - Server ${PORT} - PID ${process.pid}`)
-        
-        return res.json({
-            handledBy: `Server running on port ${PORT}`,
-            pid: process.pid,
-            source: "cache",
-            data: JSON.parse(cached)
-        })
-    }
-
-    const data = await fakeDB()
-    await redisClient.setEx(cachekey, 60, JSON.stringify(data))
-
-    res.json({
-        handledBy: `Server running on port ${PORT}`,
-        pid: process.pid,
-        source: "db",
-        data: data
-    })
+    res.json({ id: 1, name: "Amit" })
 })
 
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
