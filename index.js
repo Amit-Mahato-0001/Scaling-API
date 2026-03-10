@@ -2,6 +2,8 @@ const cluster = require('cluster')
 const os = require('os')
 const numCPUs = os.cpus().length
 
+const PORT = process.env.PORT || 3000
+
 if (cluster.isPrimary) {
     console.log(`Primary ${process.pid} is running`)
 
@@ -39,7 +41,7 @@ app.use(limiter)
 
 const fakeDB = () => new Promise(res => setTimeout(() => {
 
-    console.log("Fetching from DB")
+    console.log(`Fetching from DB - Server ${PORT} - PID ${process.pid}`)
     res({ id: 1, name: "Amit" })
 
 }, 1000))
@@ -51,15 +53,26 @@ app.get('/user', async (req, res) => {
 
     if(cached){
 
-        console.log('Returning from cache..')
-        return res.json(JSON.parse(cached))
+        console.log(`Returning from cache.. - Server ${PORT} - PID ${process.pid}`)
+        
+        return res.json({
+            handledBy: `Server running on port ${PORT}`,
+            pid: process.pid,
+            source: "cache",
+            data: JSON.parse(cached)
+        })
     }
 
     const data = await fakeDB()
     await redisClient.setEx(cachekey, 60, JSON.stringify(data))
 
-    res.json(data)
+    res.json({
+        handledBy: `Server running on port ${PORT}`,
+        pid: process.pid,
+        source: "db",
+        data: data
+    })
 })
 
-app.listen(3000, () => console.log('Server is running on port 3000'))
+app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))
 }
