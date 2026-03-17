@@ -30,7 +30,7 @@ redisClient.connect().catch(console.error)
 {/* This middleware insures no IP can spam the API more than 5 times in a minute */}
 // const limiter = rateLimit({
 //     windowMs: 60 * 1000,
-//     max: 5,
+//     max: 100000,
 //     message: "To many requests, try again later",
 //     store: new RedisStore({
 //         sendCommand: (...args) => redisClient.sendCommand(args)
@@ -48,7 +48,19 @@ const fakeDB = () => new Promise(res => setTimeout(() => {
 
 app.get('/user', async (req, res) => {
 
-    res.json({ id: 1, name: "Amit" })
+    const cached = await redisClient.get("user")
+
+    if(cached){
+
+        return res.json(JSON.parse(cached))
+    }
+
+    const data = { id : 1, name: "Amit"}
+
+    await redisClient.set("user", JSON.stringify(data))
+
+    res.json(data)
+    
 })
 
 app.listen(PORT, () => console.log(`Server is running on port ${PORT}`))

@@ -751,3 +751,64 @@ When a system reaches its limit:
 
 That is why production systems usually run **below their maximum capacity** to stay stable.
 
+---
+
+# TEST 10 – Redis Bottleneck Root Cause (Final Finding)
+
+## Overview
+
+In earlier tests (Test 7–9), Redis appeared to be the main bottleneck since removing it nearly doubled throughput.
+
+To verify this, controlled experiments were performed with:
+- No Redis (baseline)
+- Redis cache only
+- Redis rate limiting only
+
+---
+
+## Results
+
+| Scenario                     | Req/Sec (Avg) | Latency (Avg) | Total Requests (20s) |
+|----------------------------|--------------|--------------|----------------------|
+| No Redis (Baseline)        | ~27,544      | ~3.2 ms      | ~551k               |
+| Redis Cache Only           | ~16,966      | ~5.4 ms      | ~339k               |
+| Redis Rate Limiting Only   | ~11,193      | ~8.46 ms     | ~224k               |
+| NGINX + Redis (Earlier)    | ~2,406       | ~41 ms       | ~48k                |
+
+---
+
+## What We Discovered
+
+The problem was not Redis itself, but how it was used:
+
+- Redis caching (read-heavy) introduced only moderate overhead  
+- Redis rate limiting introduced **write-heavy operations (INCR + EXPIRE)** per request  
+- Every request hitting Redis created unnecessary network dependency  
+- Multiple servers shared a single Redis instance, increasing contention  
+
+---
+
+## Key Insight
+
+> Redis is efficient for read-heavy workloads, but write-heavy usage in the request path can create a bottleneck.
+
+---
+
+## Final Conclusion
+
+Initially, Redis was assumed to be the bottleneck.
+
+After isolating components, it became clear that:
+
+> **Redis-based rate limiting (write-heavy) in the request path was the real bottleneck, not Redis itself.**
+
+---
+
+## Takeaway
+
+- Redis works best for **read-heavy caching**
+- Write-heavy patterns (like rate limiting) can significantly reduce throughput
+- Avoid placing external systems in the **critical path of every request**
+- Always validate assumptions with **controlled experiments**
+
+---
